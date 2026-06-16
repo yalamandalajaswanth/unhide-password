@@ -1,0 +1,30 @@
+/* Reset hard so host-page styles can't bleed into our button, then style it. */
+.rp-toggle {
+  all: unset;
+  box-sizing: border-box;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  color: #5f6368;
+  background: transparent;
+  border-radius: 4px;
+  transition: color 0.1s ease, background-color 0.1s ease;
+}
+
+.rp-toggle:hover {
+  color: #202124;
+  background: rgba(0, 0, 0, 0.06);
+}
+
+.rp-toggle:focus-visible {
+  outline: 2px solid #1a73e8;
+  outline-offset: 1px;
+}
+
+.rp-toggle svg {
+  width: 72%;
+  height: 72%;
+  display: block;
+  pointer-events: none;
+}

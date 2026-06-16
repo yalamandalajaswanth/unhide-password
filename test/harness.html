@@ -1,0 +1,173 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Reveal — test harness</title>
+    <link rel="stylesheet" href="../src/content/style.css" />
+    <style>
+      body {
+        font: 15px/1.5 system-ui, sans-serif;
+        max-width: 640px;
+        margin: 40px auto;
+        padding: 0 20px 200px;
+        color: #202124;
+      }
+      h1 { font-size: 20px; }
+      section {
+        border: 1px solid #ddd;
+        border-radius: 8px;
+        padding: 16px;
+        margin: 16px 0;
+      }
+      h2 { font-size: 15px; margin: 0 0 10px; }
+      label { display: block; margin: 8px 0 4px; font-size: 13px; color: #555; }
+      input[type="password"],
+      input[type="text"] {
+        width: 100%;
+        padding: 10px 12px;
+        font-size: 15px;
+        border: 1px solid #bbb;
+        border-radius: 6px;
+        box-sizing: border-box;
+      }
+      .rtl { direction: rtl; }
+      button.app { margin-top: 10px; padding: 8px 12px; }
+      .note { font-size: 12px; color: #888; }
+      #log {
+        position: fixed; bottom: 0; left: 0; right: 0;
+        background: #111; color: #0f0; font: 12px/1.4 monospace;
+        padding: 8px 12px; max-height: 120px; overflow: auto; white-space: pre-wrap;
+      }
+    </style>
+  </head>
+  <body>
+    <h1>Reveal — manual test harness</h1>
+    <p class="note">
+      Loads the content scripts directly (no install needed). Each section is a
+      hard case from the handover. The crux check runs automatically below.
+    </p>
+
+    <section>
+      <h2>1. Plain password + confirm (no site control)</h2>
+      <label for="pw">Password</label>
+      <input id="pw" type="password" autocomplete="new-password" />
+      <label for="pw2">Confirm password</label>
+      <input id="pw2" type="password" autocomplete="new-password" />
+    </section>
+
+    <section>
+      <h2>2a. Field with a non-reveal trailing icon (a "★")</h2>
+      <p class="note">Not a reveal control — our icon should OFFSET to its left, not overlap or suppress.</p>
+      <div style="position: relative;">
+        <input id="pw3" type="password" style="padding-right: 40px;" />
+        <span style="position:absolute; right:10px; top:50%; transform:translateY(-50%); color:#999;">★</span>
+      </div>
+    </section>
+
+    <section>
+      <h2>2b. Field that already has its OWN show-password control</h2>
+      <p class="note">High-confidence collision — we should SUPPRESS (add no icon at all).</p>
+      <div style="position: relative;">
+        <input id="pw3b" type="password" style="padding-right: 80px;" />
+        <button
+          id="siteReveal"
+          type="button"
+          aria-label="Show password"
+          style="position:absolute; right:8px; top:50%; transform:translateY(-50%); font-size:12px; padding:4px 6px;"
+        >Show</button>
+      </div>
+    </section>
+
+    <section class="rtl">
+      <h2>3. RTL field</h2>
+      <label for="pw4">كلمة المرور</label>
+      <input id="pw4" type="password" />
+    </section>
+
+    <section>
+      <h2>4. Dynamically injected field (SPA)</h2>
+      <button class="app" id="inject">Inject a password field</button>
+      <div id="slot"></div>
+    </section>
+
+    <section>
+      <h2>5. Field inside an open shadow root</h2>
+      <div id="host"></div>
+    </section>
+
+    <div id="log"></div>
+
+    <script>
+      // --- shadow DOM case ---
+      const host = document.getElementById("host").attachShadow({ mode: "open" });
+      host.innerHTML =
+        '<label style="font:13px sans-serif;color:#555">Shadow password</label>' +
+        '<input type="password" style="width:100%;padding:10px;box-sizing:border-box;border:1px solid #bbb;border-radius:6px" />';
+
+      // --- dynamic injection case ---
+      document.getElementById("inject").addEventListener("click", () => {
+        const i = document.createElement("input");
+        i.type = "password";
+        i.placeholder = "injected at " + new Date().toLocaleTimeString();
+        document.getElementById("slot").appendChild(i);
+      });
+
+      const log = (m) => {
+        const el = document.getElementById("log");
+        el.textContent += m + "\n";
+        el.scrollTop = el.scrollHeight;
+      };
+    </script>
+
+    <!-- content scripts, same order as manifest -->
+    <script src="../src/content/field.js"></script>
+    <script src="../src/content/reveal.js"></script>
+    <script src="../src/content/mirror.js"></script>
+    <script src="../src/content/suppress.js"></script>
+    <script src="../src/content/overlay.js"></script>
+    <script src="../src/content/index.js"></script>
+
+    <!-- PHASE 0 CRUX CHECK: does CSS reveal work, and is .value never touched? -->
+    <script>
+      window.addEventListener("load", () => {
+        setTimeout(() => {
+          const RP = window.RP;
+          log("supportsTextSecurity (functional probe) = " + RP.supportsTextSecurity);
+          log("mechanism = " + (RP.supportsTextSecurity ? "css text-security" : "guarded type-toggle"));
+
+          // Is the field actually showing plaintext to the eye?
+          const visiblyRevealed = (el) =>
+            el.type === "text" ||
+            getComputedStyle(el).webkitTextSecurity === "none";
+
+          const f = document.getElementById("pw");
+          const SECRET = "Sup3rl0ng-P@ssw0rd-1234567890";
+          f.value = SECRET;
+
+          RP.reveal(f);
+          const revealedOk = visiblyRevealed(f) && f.value === SECRET;
+          log(
+            "after reveal: visiblyRevealed=" + visiblyRevealed(f) +
+            " type=" + f.type +
+            " value-intact=" + (f.value === SECRET)
+          );
+
+          RP.mask(f);
+          const maskedOk = !visiblyRevealed(f) && f.type === "password" && f.value === SECRET;
+          log(
+            "after mask:   visiblyRevealed=" + visiblyRevealed(f) +
+            " type=" + f.type +
+            " value-intact=" + (f.value === SECRET)
+          );
+
+          f.value = ""; // clean up so the page starts empty
+          log(
+            (revealedOk && maskedOk ? "PASS" : "FAIL") +
+            " — crux: reveal actually unmasks, mask restores, .value never mutated"
+          );
+        }, 100);
+      });
+    </script>
+  </body>
+</html>

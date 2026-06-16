@@ -1,0 +1,24 @@
+{
+  "manifest_version": 3,
+  "name": "Reveal — Show Password",
+  "version": "0.1.0",
+  "description": "Adds an accessible show/hide toggle to password fields on sites that don't provide one. Reveals via CSS, never touches the field's value. Local-only, no network.",
+  "permissions": ["storage"],
+  "host_permissions": ["<all_urls>"],
+  "content_scripts": [
+    {
+      "matches": ["<all_urls>"],
+      "all_frames": true,
+      "run_at": "document_idle",
+      "js": [
+        "src/content/field.js",
+        "src/content/reveal.js",
+        "src/content/mirror.js",
+        "src/content/suppress.js",
+        "src/content/overlay.js",
+        "src/content/index.js"
+      ],
+      "css": ["src/content/style.css"]
+    }
+  ]
+}

@@ -1,0 +1,26 @@
+# Claude Code local config (machine-specific; not part of the project)
+.claude/
+
+# OS junk
+.DS_Store
+Thumbs.db
+
+# Editors
+.vscode/
+.idea/
+*.swp
+
+# Node / tooling (Playwright & friends, added later)
+node_modules/
+npm-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# Build / packaging output
+dist/
+*.zip
+web-ext-artifacts/
+
+# Secrets / env
+.env
+.env.local
